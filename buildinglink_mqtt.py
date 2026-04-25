@@ -20,8 +20,8 @@ def mqtt_base_topic(cfg):
 def publish_mqtt(client, data, cfg):
     client.publish(f"{mqtt_base_topic(cfg)}/state", json.dumps(data), retain=True)
 
-def on_connect(client, userdata, flags, rc, cfg):
-    logging.info("Connected to the MQTT broker. rc=" + str(rc))
+def on_connect(client, userdata, connect_flags, reason_code, cfg):
+    logging.info("Connected to the MQTT broker. rc=" + str(reason_code))
 
     base = mqtt_base_topic(cfg)
     client.publish(f"{base}-packages/config", json.dumps({
@@ -33,8 +33,8 @@ def on_connect(client, userdata, flags, rc, cfg):
         "value_template": "{{ value_json.packages | int }}"
     }), retain=True)
 
-def on_disconnect(client, userdata, rc):
-    logging.info("Disconnected from the MQTT broker. rc=" + str(rc))
+def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
+    logging.info("Disconnected from the MQTT broker. rc=" + str(reason_code))
 
 
 def get_hidden_inputs(text):
@@ -66,7 +66,7 @@ def get_package_count(page):
     rows = len(trs)
 
     if rows == 0:
-        logging.warn(f"No package rows found at all")
+        logging.warning(f"No package rows found at all")
         return None
     elif rows == 1 and "rgNoRecords" in trs[0].get("class"):
         logging.debug(f"rgNoRecords found; 0 packages")
@@ -82,8 +82,8 @@ def main():
 
     cfg = config.CONFIG
 
-    client = mqtt.Client(client_id=cfg["client_id"])
-    client.on_connect = lambda c, u, f, rc: on_connect(c, u, f, rc, cfg)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=cfg["client_id"])
+    client.on_connect = lambda c, u, f, rc, props: on_connect(c, u, f, rc, cfg)
     client.on_disconnect = on_disconnect
     client.connect(cfg["broker"]["host"])
     client.loop_start()

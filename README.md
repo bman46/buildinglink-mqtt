@@ -35,7 +35,7 @@ cp config.example.py config.py
 Install the required dependencies and run the script directly:
 
 ```bash
-pip install lxml paho-mqtt requests
+pip install -r requirements.txt
 python3 buildinglink_mqtt.py
 ```
 
