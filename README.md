@@ -17,12 +17,16 @@ All configuration is supplied via environment variables. For local Python runs, 
 | Environment Variable | config.py key | Description | Default |
 |---|---|---|---|
 | `BL_USERNAME` | `username` | BuildingLink login username | *(required)* |
+| `BL_USERNAME_FILE` | — | Path to a file containing the BuildingLink username (e.g. a Docker secret) | — |
 | `BL_PASSWORD` | `password` | BuildingLink login password | *(required)* |
+| `BL_PASSWORD_FILE` | — | Path to a file containing the BuildingLink password (e.g. a Docker secret) | — |
 | `MQTT_HOST` | `broker.host` | IP address or hostname of your MQTT broker | *(required)* |
 | `MQTT_PORT` | `broker.port` | MQTT broker port | `1883` |
 | `MQTT_CLIENT_ID` | `client_id` | MQTT client identifier | `buildinglink_mqtt` |
 | `MQTT_DISCOVERY_PREFIX` | `discovery_prefix` | Home Assistant MQTT discovery prefix | `homeassistant` |
 | `BL_REFRESH_INTERVAL` | `refresh_interval` | Polling interval in seconds | `300` |
+
+> **Tip:** When both `BL_USERNAME_FILE` and `BL_USERNAME` are set, the file value takes precedence.
 
 ## Running
 
@@ -99,6 +103,51 @@ services:
     image: ghcr.io/bman46/buildinglink-mqtt:latest
     restart: unless-stopped
     env_file: .env
+```
+
+### With Docker Secrets (Docker Swarm)
+
+For production deployments, credentials can be stored as [Docker secrets](https://docs.docker.com/engine/swarm/secrets/) instead of plain-text environment variables. Secrets are mounted as files under `/run/secrets/` and referenced via `BL_USERNAME_FILE` / `BL_PASSWORD_FILE`:
+
+Create the secrets:
+
+```bash
+echo "your_buildinglink_username" | docker secret create bl_username -
+echo "your_buildinglink_password" | docker secret create bl_password -
+```
+
+Deploy as a Swarm service:
+
+```bash
+docker service create \
+  --name buildinglink-mqtt \
+  --secret bl_username \
+  --secret bl_password \
+  -e BL_USERNAME_FILE=/run/secrets/bl_username \
+  -e BL_PASSWORD_FILE=/run/secrets/bl_password \
+  -e MQTT_HOST=192.168.1.100 \
+  ghcr.io/bman46/buildinglink-mqtt:latest
+```
+
+Or with a Docker Compose Swarm stack (`docker stack deploy`):
+
+```yaml
+services:
+  buildinglink-mqtt:
+    image: ghcr.io/bman46/buildinglink-mqtt:latest
+    environment:
+      BL_USERNAME_FILE: /run/secrets/bl_username
+      BL_PASSWORD_FILE: /run/secrets/bl_password
+      MQTT_HOST: 192.168.1.100
+    secrets:
+      - bl_username
+      - bl_password
+
+secrets:
+  bl_username:
+    external: true
+  bl_password:
+    external: true
 ```
 
 ## Home Assistant

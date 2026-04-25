@@ -23,10 +23,30 @@ def _parse_int_env(name, default):
         raise ValueError(f"Environment variable {name} must be an integer, got: {value!r}")
 
 
+def _read_secret(env_var):
+    """Read a value from a file path given by {env_var}_FILE, or fall back to {env_var}.
+
+    This supports Docker secrets, which are mounted as files under /run/secrets/.
+    """
+    file_path = os.environ.get(f"{env_var}_FILE")
+    if file_path:
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                return f.read().strip()
+        except OSError as e:
+            logging.debug("Could not read secret file for %s (%s): %s", env_var, file_path, e)
+            raise RuntimeError(f"Could not read secret file for {env_var}: {e.strerror}") from e
+    return os.environ.get(env_var)
+
+
 def load_config():
-    """Load configuration from environment variables, falling back to config.py."""
-    username = os.environ.get("BL_USERNAME")
-    password = os.environ.get("BL_PASSWORD")
+    """Load configuration from environment variables, falling back to config.py.
+
+    Sensitive values (BL_USERNAME, BL_PASSWORD) can also be provided via Docker
+    secrets by setting BL_USERNAME_FILE / BL_PASSWORD_FILE to the secret file path.
+    """
+    username = _read_secret("BL_USERNAME")
+    password = _read_secret("BL_PASSWORD")
     mqtt_host = os.environ.get("MQTT_HOST")
 
     if username and password and mqtt_host:
@@ -47,8 +67,9 @@ def load_config():
         return config.CONFIG
     except ImportError:
         raise RuntimeError(
-            "Configuration not found. Set BL_USERNAME, BL_PASSWORD, and MQTT_HOST "
-            "environment variables, or create a config.py file based on config.example.py."
+            "Configuration not found. Set BL_USERNAME (or BL_USERNAME_FILE), "
+            "BL_PASSWORD (or BL_PASSWORD_FILE), and MQTT_HOST environment variables, "
+            "or create a config.py file based on config.example.py."
         )
 
 
