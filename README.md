@@ -12,21 +12,17 @@ The integration periodically polls the BuildingLink website, counts the number o
 
 ## Configuration
 
-Copy `config.example.py` to `config.py` and fill in your values:
+All configuration is supplied via environment variables. For local Python runs, you can alternatively copy `config.example.py` to `config.py` and fill in your values (environment variables take precedence when set).
 
-```bash
-cp config.example.py config.py
-```
-
-| Key | Description |
-|-----|-------------|
-| `username` | Your BuildingLink login username |
-| `password` | Your BuildingLink login password |
-| `broker.host` | IP address or hostname of your MQTT broker |
-| `broker.port` | MQTT broker port (default: `1883`) |
-| `client_id` | MQTT client identifier (any unique string) |
-| `discovery_prefix` | Home Assistant MQTT discovery prefix (default: `homeassistant`) |
-| `refresh_interval` | Polling interval in seconds (default: `300`) |
+| Environment Variable | config.py key | Description | Default |
+|---|---|---|---|
+| `BL_USERNAME` | `username` | BuildingLink login username | *(required)* |
+| `BL_PASSWORD` | `password` | BuildingLink login password | *(required)* |
+| `MQTT_HOST` | `broker.host` | IP address or hostname of your MQTT broker | *(required)* |
+| `MQTT_PORT` | `broker.port` | MQTT broker port | `1883` |
+| `MQTT_CLIENT_ID` | `client_id` | MQTT client identifier | `buildinglink_mqtt` |
+| `MQTT_DISCOVERY_PREFIX` | `discovery_prefix` | Home Assistant MQTT discovery prefix | `homeassistant` |
+| `BL_REFRESH_INTERVAL` | `refresh_interval` | Polling interval in seconds | `300` |
 
 ## Running
 
@@ -47,13 +43,15 @@ Build the image locally:
 docker build -t buildinglink-mqtt .
 ```
 
-Run the container, mounting your `config.py` into the image:
+Run the container, passing configuration as environment variables:
 
 ```bash
 docker run -d \
   --name buildinglink-mqtt \
   --restart unless-stopped \
-  -v "$(pwd)/config.py:/app/config.py:ro" \
+  -e BL_USERNAME=your_username \
+  -e BL_PASSWORD=your_password \
+  -e MQTT_HOST=192.168.1.100 \
   buildinglink-mqtt
 ```
 
@@ -63,27 +61,44 @@ docker run -d \
 docker run -d \
   --name buildinglink-mqtt \
   --restart unless-stopped \
-  -v "$(pwd)/config.py:/app/config.py:ro" \
+  -e BL_USERNAME=your_username \
+  -e BL_PASSWORD=your_password \
+  -e MQTT_HOST=192.168.1.100 \
   ghcr.io/bman46/buildinglink-mqtt:latest
 ```
 
 ### With Docker Compose
-
-Create a `docker-compose.yml` alongside your `config.py`:
 
 ```yaml
 services:
   buildinglink-mqtt:
     image: ghcr.io/bman46/buildinglink-mqtt:latest
     restart: unless-stopped
-    volumes:
-      - ./config.py:/app/config.py:ro
+    environment:
+      BL_USERNAME: your_username
+      BL_PASSWORD: your_password
+      MQTT_HOST: 192.168.1.100
+      # MQTT_PORT: 1883
+      # MQTT_CLIENT_ID: buildinglink_mqtt
+      # MQTT_DISCOVERY_PREFIX: homeassistant
+      # BL_REFRESH_INTERVAL: 300
 ```
 
-Then start it:
+You can also keep credentials in a separate `.env` file (not committed to source control):
 
 ```bash
-docker compose up -d
+# .env
+BL_USERNAME=your_username
+BL_PASSWORD=your_password
+MQTT_HOST=192.168.1.100
+```
+
+```yaml
+services:
+  buildinglink-mqtt:
+    image: ghcr.io/bman46/buildinglink-mqtt:latest
+    restart: unless-stopped
+    env_file: .env
 ```
 
 ## Home Assistant

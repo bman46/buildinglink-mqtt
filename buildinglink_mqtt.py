@@ -3,15 +3,53 @@
 import json
 import logging
 import lxml.html
+import os
 import requests
 import time
 
 import paho.mqtt.client as mqtt
 
-import config
-
 PACKAGES_TABLE_ID = "ctl00_ContentPlaceHolder1_GridDeliveries_ctl00"
 PACKAGES_XPATH = f"//table[@id='{PACKAGES_TABLE_ID}']/tbody/tr"
+
+
+def _parse_int_env(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        raise ValueError(f"Environment variable {name} must be an integer, got: {value!r}")
+
+
+def load_config():
+    """Load configuration from environment variables, falling back to config.py."""
+    username = os.environ.get("BL_USERNAME")
+    password = os.environ.get("BL_PASSWORD")
+    mqtt_host = os.environ.get("MQTT_HOST")
+
+    if username and password and mqtt_host:
+        return {
+            "username": username,
+            "password": password,
+            "broker": {
+                "host": mqtt_host,
+                "port": _parse_int_env("MQTT_PORT", 1883),
+            },
+            "client_id": os.environ.get("MQTT_CLIENT_ID", "buildinglink_mqtt"),
+            "discovery_prefix": os.environ.get("MQTT_DISCOVERY_PREFIX", "homeassistant"),
+            "refresh_interval": _parse_int_env("BL_REFRESH_INTERVAL", 300),
+        }
+
+    try:
+        import config
+        return config.CONFIG
+    except ImportError:
+        raise RuntimeError(
+            "Configuration not found. Set BL_USERNAME, BL_PASSWORD, and MQTT_HOST "
+            "environment variables, or create a config.py file based on config.example.py."
+        )
 
 
 def mqtt_base_topic(cfg):
@@ -80,7 +118,7 @@ def main():
         format='%(asctime)s %(levelname)-8s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
 
-    cfg = config.CONFIG
+    cfg = load_config()
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=cfg["client_id"])
     client.on_connect = lambda c, u, f, rc, props: on_connect(c, u, f, rc, cfg)
