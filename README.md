@@ -47,6 +47,8 @@ Build the image locally:
 docker build -t buildinglink-mqtt .
 ```
 
+The published container images support both `linux/amd64` and `linux/arm64`.
+
 Run the container, passing configuration as environment variables:
 
 ```bash
