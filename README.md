@@ -22,6 +22,10 @@ All configuration is supplied via environment variables. For local Python runs, 
 | `BL_PASSWORD_FILE` | — | Path to a file containing the BuildingLink password (e.g. a Docker secret) | — |
 | `MQTT_HOST` | `broker.host` | IP address or hostname of your MQTT broker | *(required)* |
 | `MQTT_PORT` | `broker.port` | MQTT broker port | `1883` |
+| `MQTT_USERNAME` | `broker.username` | MQTT broker username | — |
+| `MQTT_USERNAME_FILE` | — | Path to a file containing the MQTT broker username | — |
+| `MQTT_PASSWORD` | `broker.password` | MQTT broker password | — |
+| `MQTT_PASSWORD_FILE` | — | Path to a file containing the MQTT broker password | — |
 | `MQTT_CLIENT_ID` | `client_id` | MQTT client identifier | `buildinglink_mqtt` |
 | `MQTT_DISCOVERY_PREFIX` | `discovery_prefix` | Home Assistant MQTT discovery prefix | `homeassistant` |
 | `BL_REFRESH_INTERVAL` | `refresh_interval` | Polling interval in seconds | `300` |
@@ -58,6 +62,8 @@ docker run -d \
   -e BL_USERNAME=your_username \
   -e BL_PASSWORD=your_password \
   -e MQTT_HOST=192.168.1.100 \
+  -e MQTT_USERNAME=your_mqtt_username \
+  -e MQTT_PASSWORD=your_mqtt_password \
   buildinglink-mqtt
 ```
 
@@ -70,6 +76,8 @@ docker run -d \
   -e BL_USERNAME=your_username \
   -e BL_PASSWORD=your_password \
   -e MQTT_HOST=192.168.1.100 \
+  -e MQTT_USERNAME=your_mqtt_username \
+  -e MQTT_PASSWORD=your_mqtt_password \
   ghcr.io/bman46/buildinglink-mqtt:latest
 ```
 
@@ -84,6 +92,8 @@ services:
       BL_USERNAME: your_username
       BL_PASSWORD: your_password
       MQTT_HOST: 192.168.1.100
+      # MQTT_USERNAME: your_mqtt_username
+      # MQTT_PASSWORD: your_mqtt_password
       # MQTT_PORT: 1883
       # MQTT_CLIENT_ID: buildinglink_mqtt
       # MQTT_DISCOVERY_PREFIX: homeassistant
@@ -97,6 +107,8 @@ You can also keep credentials in a separate `.env` file (not committed to source
 BL_USERNAME=your_username
 BL_PASSWORD=your_password
 MQTT_HOST=192.168.1.100
+MQTT_USERNAME=your_mqtt_username
+MQTT_PASSWORD=your_mqtt_password
 ```
 
 ```yaml

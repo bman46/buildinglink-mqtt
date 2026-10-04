@@ -48,6 +48,8 @@ def load_config():
     username = _read_secret("BL_USERNAME")
     password = _read_secret("BL_PASSWORD")
     mqtt_host = os.environ.get("MQTT_HOST")
+    mqtt_username = _read_secret("MQTT_USERNAME")
+    mqtt_password = _read_secret("MQTT_PASSWORD")
 
     if username and password and mqtt_host:
         return {
@@ -56,6 +58,8 @@ def load_config():
             "broker": {
                 "host": mqtt_host,
                 "port": _parse_int_env("MQTT_PORT", 1883),
+                "username": mqtt_username,
+                "password": mqtt_password,
             },
             "client_id": os.environ.get("MQTT_CLIENT_ID", "buildinglink_mqtt"),
             "discovery_prefix": os.environ.get("MQTT_DISCOVERY_PREFIX", "homeassistant"),
@@ -144,7 +148,11 @@ def main():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=cfg["client_id"])
     client.on_connect = lambda c, u, f, rc, props: on_connect(c, u, f, rc, cfg)
     client.on_disconnect = on_disconnect
-    client.connect(cfg["broker"]["host"])
+    broker_cfg = cfg["broker"]
+    broker_username = broker_cfg.get("username")
+    if broker_username:
+        client.username_pw_set(broker_username, broker_cfg.get("password"))
+    client.connect(broker_cfg["host"], broker_cfg.get("port", 1883))
     client.loop_start()
 
     with requests.Session() as session:
