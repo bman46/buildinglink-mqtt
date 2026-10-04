@@ -80,17 +80,19 @@ def load_config():
 def mqtt_base_topic(cfg):
     return f"{cfg['discovery_prefix']}/sensor/buildinglink"
 
+def mqtt_discovery_topic(cfg):
+    return f"{cfg['discovery_prefix']}/sensor/buildinglink_packages/config"
+
 def publish_mqtt(client, data, cfg):
     client.publish(f"{mqtt_base_topic(cfg)}/state", json.dumps(data), retain=True)
 
 def on_connect(client, userdata, connect_flags, reason_code, cfg):
     logging.info("Connected to the MQTT broker. rc=" + str(reason_code))
 
-    base = mqtt_base_topic(cfg)
-    client.publish(f"{base}-packages/config", json.dumps({
+    client.publish(mqtt_discovery_topic(cfg), json.dumps({
         "name": "BuildingLink Packages",
         "unique_id": "buildinglink_packages",
-        "state_topic": f"{base}/state",
+        "state_topic": f"{mqtt_base_topic(cfg)}/state",
         "icon": "mdi:package-variant",
         "unit_of_measurement": "package(s)",
         "value_template": "{{ value_json.packages | int }}"
