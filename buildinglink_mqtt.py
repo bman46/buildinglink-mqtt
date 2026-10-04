@@ -151,7 +151,7 @@ def get_package_count_from_eventlog(s, access_token):
     response = s.get(
         EVENTLOG_URL,
         headers={
-            "Authorization": f"******",
+            "Authorization": "Bearer " + access_token,
             "x-api-key": EVENTLOG_API_KEY,
             "Accept": EVENTLOG_ACCEPT,
             "Origin": "https://www.buildinglink.com",
