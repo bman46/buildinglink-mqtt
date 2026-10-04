@@ -11,6 +11,9 @@ import paho.mqtt.client as mqtt
 
 PACKAGES_TABLE_ID = "ctl00_ContentPlaceHolder1_GridDeliveries_ctl00"
 PACKAGES_XPATH = f"//table[@id='{PACKAGES_TABLE_ID}']/tbody/tr"
+EVENTLOG_URL = "https://eventlog-us1.buildinglink.com/event-log/resident"
+EVENTLOG_API_KEY = "hylwvvmjdgc45mt9kab1agriyvuh0nig9qx8djmu"
+EVENTLOG_ACCEPT = "application/json;odata.metadata=minimal;odata.streaming=true"
 
 
 def _parse_int_env(name, default):
@@ -121,7 +124,9 @@ def load_page(s, cfg):
     r = s.post(r.url, data=form)
 
     form = get_hidden_inputs(r.text)
+    access_token = form.get("access_token")
     r = s.post("https://www.buildinglink.com/v2/oidc-callback", data=form)
+    return access_token
 
 
 def get_package_count(page):
@@ -136,6 +141,41 @@ def get_package_count(page):
         return 0
     else:
         return rows
+
+
+def get_package_count_from_eventlog(s, access_token):
+    if not access_token:
+        logging.warning("No access token available for event-log fallback")
+        return None
+
+    response = s.get(
+        EVENTLOG_URL,
+        headers={
+            "Authorization": f"******",
+            "x-api-key": EVENTLOG_API_KEY,
+            "Accept": EVENTLOG_ACCEPT,
+            "Origin": "https://www.buildinglink.com",
+            "Referer": "https://www.buildinglink.com/",
+        },
+    )
+
+    if response.status_code == 401:
+        return None
+
+    response.raise_for_status()
+    payload = response.json()
+
+    if isinstance(payload, list):
+        return len(payload)
+
+    if isinstance(payload, dict):
+        for key in ("openDeliveries", "items", "data", "results", "events"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return len(value)
+
+    logging.warning("Unexpected event-log payload shape: %s", type(payload).__name__)
+    return None
 
 def main():
     logging.basicConfig(
@@ -156,13 +196,22 @@ def main():
     client.loop_start()
 
     with requests.Session() as session:
-        load_page(session, cfg)
+        access_token = load_page(session, cfg)
 
         packages = None
 
         while True:
             page = session.get("https://www.buildinglink.com/V2/Tenant/Deliveries/Deliveries.aspx")
             pkg_count = get_package_count(page)
+
+            if pkg_count is None:
+                try:
+                    pkg_count = get_package_count_from_eventlog(session, access_token)
+                    if pkg_count is None:
+                        access_token = load_page(session, cfg)
+                        pkg_count = get_package_count_from_eventlog(session, access_token)
+                except requests.RequestException as e:
+                    logging.warning(f"Event-log fallback failed: {e}")
 
             if pkg_count is not None:
                 logging.info(f"{str(pkg_count)} package(s)")
