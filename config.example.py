@@ -7,6 +7,8 @@ CONFIG = {
     "broker": {
         "host": "192.168.1.100",   # IP or hostname of your MQTT broker
         "port": 1883,               # Default MQTT port
+        "username": None,           # Optional MQTT username
+        "password": None,           # Optional MQTT password
     },
     "client_id": "buildinglink_mqtt",
 
