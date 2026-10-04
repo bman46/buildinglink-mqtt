@@ -129,8 +129,8 @@ def get_package_count(page):
     rows = len(trs)
 
     if rows == 0:
-        logging.warning(f"No package rows found at all")
-        return None
+        logging.debug("No package rows found; treating as 0 packages")
+        return 0
     elif rows == 1 and "rgNoRecords" in trs[0].get("class"):
         logging.debug(f"rgNoRecords found; 0 packages")
         return 0
