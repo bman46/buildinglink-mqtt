@@ -29,6 +29,7 @@ All configuration is supplied via environment variables. For local Python runs, 
 | `MQTT_CLIENT_ID` | `client_id` | MQTT client identifier | `buildinglink_mqtt` |
 | `MQTT_DISCOVERY_PREFIX` | `discovery_prefix` | Home Assistant MQTT discovery prefix | `homeassistant` |
 | `BL_REFRESH_INTERVAL` | `refresh_interval` | Polling interval in seconds | `300` |
+| `BL_EVENT_LOG_URL` | `event_log_url` | BuildingLink resident event-log endpoint (region-specific) | `https://eventlog-us1.buildinglink.com/event-log/resident` |
 
 > **Tip:** When both `BL_USERNAME_FILE` and `BL_USERNAME` are set, the file value takes precedence.
 
@@ -98,6 +99,7 @@ services:
       # MQTT_CLIENT_ID: buildinglink_mqtt
       # MQTT_DISCOVERY_PREFIX: homeassistant
       # BL_REFRESH_INTERVAL: 300
+      # BL_EVENT_LOG_URL: https://eventlog-us1.buildinglink.com/event-log/resident
 ```
 
 You can also keep credentials in a separate `.env` file (not committed to source control):
@@ -109,6 +111,7 @@ BL_PASSWORD=your_password
 MQTT_HOST=192.168.1.100
 MQTT_USERNAME=your_mqtt_username
 MQTT_PASSWORD=your_mqtt_password
+BL_EVENT_LOG_URL=https://eventlog-us1.buildinglink.com/event-log/resident
 ```
 
 ```yaml

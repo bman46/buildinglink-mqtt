@@ -10,8 +10,6 @@ import time
 
 import paho.mqtt.client as mqtt
 
-PACKAGES_TABLE_ID = "ctl00_ContentPlaceHolder1_GridDeliveries_ctl00"
-PACKAGES_XPATH = f"//table[@id='{PACKAGES_TABLE_ID}']/tbody/tr"
 EVENT_LOG_URL_DEFAULT = "https://eventlog-us1.buildinglink.com/event-log/resident"
 
 
@@ -66,11 +64,14 @@ def load_config():
             "client_id": os.environ.get("MQTT_CLIENT_ID", "buildinglink_mqtt"),
             "discovery_prefix": os.environ.get("MQTT_DISCOVERY_PREFIX", "homeassistant"),
             "refresh_interval": _parse_int_env("BL_REFRESH_INTERVAL", 300),
+            "event_log_url": os.environ.get("BL_EVENT_LOG_URL", EVENT_LOG_URL_DEFAULT),
         }
 
     try:
         import config
-        return config.CONFIG
+        cfg = dict(config.CONFIG)
+        cfg.setdefault("event_log_url", EVENT_LOG_URL_DEFAULT)
+        return cfg
     except ImportError:
         raise RuntimeError(
             "Configuration not found. Set BL_USERNAME (or BL_USERNAME_FILE), "
@@ -128,27 +129,6 @@ def load_page(s, cfg):
     r = s.post("https://www.buildinglink.com/v2/oidc-callback", data=form)
 
 
-def get_package_count(page):
-    trs = lxml.html.fromstring(page.text).xpath(PACKAGES_XPATH)
-    rows = len(trs)
-
-    if rows == 0:
-        logging.debug("No package rows found; treating as 0 packages")
-        return 0
-    elif rows == 1 and "rgNoRecords" in trs[0].get("class"):
-        logging.debug(f"rgNoRecords found; 0 packages")
-        return 0
-    else:
-        return rows
-
-
-def _extract_event_log_url(text):
-    match = re.search(r"https://eventlog-[^\"']+/event-log/resident", text)
-    if match:
-        return match.group(0)
-    return EVENT_LOG_URL_DEFAULT
-
-
 def _extract_bearer_token(text):
     token_patterns = [
         r'"access[_-]?token"\s*:\s*"([^"]+)"',
@@ -166,8 +146,8 @@ def _extract_bearer_token(text):
     return None
 
 
-def get_package_count_from_event_log(session, page):
-    event_log_url = _extract_event_log_url(page.text)
+def get_package_count_from_event_log(session, page, cfg):
+    event_log_url = cfg["event_log_url"]
     token = _extract_bearer_token(page.text)
     headers = {}
 
@@ -215,15 +195,14 @@ def main():
 
         while True:
             page = session.get("https://www.buildinglink.com/V2/Tenant/Deliveries/Deliveries.aspx")
-            pkg_count = get_package_count(page)
+            pkg_count = None
 
-            if pkg_count == 0 and "VueAppWrapper.aspx" in page.url:
-                try:
-                    pkg_count = get_package_count_from_event_log(session, page)
-                except requests.RequestException as e:
-                    logging.warning("Could not fetch packages from event-log API: %s", e)
-                except ValueError as e:
-                    logging.warning("Could not parse event-log API response: %s", e)
+            try:
+                pkg_count = get_package_count_from_event_log(session, page, cfg)
+            except requests.RequestException as e:
+                logging.warning("Could not fetch packages from event-log API (%s): %s", cfg["event_log_url"], e)
+            except ValueError as e:
+                logging.warning("Could not parse event-log API response: %s", e)
 
             if pkg_count is not None:
                 logging.info(f"{str(pkg_count)} package(s)")

@@ -17,4 +17,7 @@ CONFIG = {
 
     # How often (in seconds) to poll BuildingLink for package updates
     "refresh_interval": 300,
+
+    # BuildingLink event-log endpoint (region-specific)
+    "event_log_url": "https://eventlog-us1.buildinglink.com/event-log/resident",
 }
