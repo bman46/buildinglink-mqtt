@@ -4,6 +4,7 @@ import json
 import logging
 import lxml.html
 import os
+import re
 import requests
 import time
 
@@ -11,6 +12,7 @@ import paho.mqtt.client as mqtt
 
 PACKAGES_TABLE_ID = "ctl00_ContentPlaceHolder1_GridDeliveries_ctl00"
 PACKAGES_XPATH = f"//table[@id='{PACKAGES_TABLE_ID}']/tbody/tr"
+EVENT_LOG_URL_DEFAULT = "https://eventlog-us1.buildinglink.com/event-log/resident"
 
 
 def _parse_int_env(name, default):
@@ -139,6 +141,55 @@ def get_package_count(page):
     else:
         return rows
 
+
+def _extract_event_log_url(text):
+    match = re.search(r"https://eventlog-[^\"']+/event-log/resident", text)
+    if match:
+        return match.group(0)
+    return EVENT_LOG_URL_DEFAULT
+
+
+def _extract_bearer_token(text):
+    token_patterns = [
+        r'"access[_-]?token"\s*:\s*"([^"]+)"',
+        r"'access[_-]?token'\s*:\s*'([^']+)'",
+        r'"token"\s*:\s*"([^"]+)"',
+        r"'token'\s*:\s*'([^']+)'",
+        r"Bearer\s+([A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+)",
+        r"([A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+)",
+    ]
+
+    for pattern in token_patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1)
+    return None
+
+
+def get_package_count_from_event_log(session, page):
+    event_log_url = _extract_event_log_url(page.text)
+    token = _extract_bearer_token(page.text)
+    headers = {}
+
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    else:
+        logging.debug("No bearer token found in Vue page; trying event-log request with session cookies only")
+
+    response = session.get(event_log_url, headers=headers)
+    response.raise_for_status()
+
+    data = response.json()
+    if isinstance(data, list):
+        return len(data)
+    if isinstance(data, dict):
+        events = data.get("events")
+        if isinstance(events, list):
+            return len(events)
+
+    logging.debug("Unexpected event-log payload type: %s", type(data).__name__)
+    return 0
+
 def main():
     logging.basicConfig(
         level=logging.DEBUG,
@@ -165,6 +216,14 @@ def main():
         while True:
             page = session.get("https://www.buildinglink.com/V2/Tenant/Deliveries/Deliveries.aspx")
             pkg_count = get_package_count(page)
+
+            if pkg_count == 0 and "VueAppWrapper.aspx" in page.url:
+                try:
+                    pkg_count = get_package_count_from_event_log(session, page)
+                except requests.RequestException as e:
+                    logging.warning("Could not fetch packages from event-log API: %s", e)
+                except ValueError as e:
+                    logging.warning("Could not parse event-log API response: %s", e)
 
             if pkg_count is not None:
                 logging.info(f"{str(pkg_count)} package(s)")
